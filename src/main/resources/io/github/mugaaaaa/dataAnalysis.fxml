@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.text.Font?>
+
+<GridPane hgap="10" prefHeight="182.0" prefWidth="157.0" vgap="15" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="io.github.mugaaaaa.controller.DataAnalysisController">
+    <padding>
+        <Insets bottom="20" left="20" right="20" top="20" />
+    </padding>
+
+    <Label text="答对题目数:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+    <Label fx:id="correctCountLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="0">
+        <font><Font name="System Bold" size="14.0" /></font>
+    </Label>
+
+    <Label text="答错题目数:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+    <Label fx:id="incorrectCountLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="1">
+        <font><Font name="System Bold" size="14.0" /></font>
+    </Label>
+
+    <Label text="未答题目数:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+    <Label fx:id="unansweredCountLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="2">
+        <font><Font name="System Bold" size="14.0" /></font>
+    </Label>
+
+    <Label text="总计题目数:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+    <Label fx:id="totalCountLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="3">
+        <font><Font name="System Bold" size="14.0" /></font>
+    </Label>
+
+    <Label text="正确率:" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+    <Label fx:id="accuracyLabel" text="0.00%" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <font><Font name="System Bold" size="14.0" /></font>
+    </Label>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+   </rowConstraints>
+</GridPane>
