@@ -99,7 +99,7 @@ public class Controller {
                 rb.setDisable(true);
                 // 如果是正确答案，可以特殊高亮显示
                 if (optionText.startsWith(currentQuestion.answer() + ".")) {
-                    // rb.setStyle("-fx-font-weight: bold;"); // 例如加粗
+                    rb.setStyle("-fx-font-weight: bold;"); // 例如加粗
                 }
             }
             optionsContainer.getChildren().add(rb);

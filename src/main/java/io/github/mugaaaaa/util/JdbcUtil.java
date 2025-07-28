@@ -31,7 +31,7 @@ public class JdbcUtil {
     }
 
     /**
-     * 安全地关闭数据库资源
+     * 关闭数据库资源
      * @param conn 数据库连接 (可以为null)
      * @param stmt Statement 或 PreparedStatement (可以为null)
      * @param rs ResultSet (可以为null)
