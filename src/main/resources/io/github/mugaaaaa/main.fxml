@@ -59,8 +59,14 @@
                   <MenuItem fx:id="dataAnalysis" mnemonicParsing="false" onAction="#showDataAnalysis" text="数据统计" />
                </items>
         </Menu>
-        <Menu fx:id="help" mnemonicParsing="false" text="帮助" />
-            <Menu fx:id="help1" mnemonicParsing="false" text="关于" />
+        <Menu fx:id="help" mnemonicParsing="false" text="帮助">
+               <items>
+                  <MenuItem mnemonicParsing="false" onAction="#showHelp" text="帮助" />
+               </items></Menu>
+            <Menu fx:id="help1" mnemonicParsing="false" text="关于">
+               <items>
+                  <MenuItem mnemonicParsing="false" onAction="#showAbout" text="关于本软件" />
+               </items></Menu>
       </menus>
     </MenuBar>
     <SplitPane dividerPositions="0.2602222222222222" focusTraversable="true" prefHeight="-1.0" prefWidth="-1.0" VBox.vgrow="ALWAYS">

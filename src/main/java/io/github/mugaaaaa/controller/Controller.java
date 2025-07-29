@@ -14,14 +14,15 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Modality;
-import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.scene.Node;
 import java.io.IOException;
 import java.net.URL;
 
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.ArrayList;
 
 /**
  * 主页面(main.fxml)控制器:
@@ -36,18 +37,18 @@ import java.util.HashMap;
  * <li>handleSubmitAnswer: 提交答案后更新数据库, 调用updateButtonAppearance
  * 根据是否答对改变题目列表里面对应的按钮颜色, 在题干后追加正确答案.</li>
  * <li>updateButtonAppearance: 根据是否答对改变题目列表里面对应的按钮颜色.</li>
- * <li></li>
- * <li>executeClearRecords: 重置答题记录, 题目列表里面的按钮颜色还原.
- * 后台执行数据库操作之后改变UI</li>
  * <li>handleLastQuestion: 如果当前不是第一题，就显示前一题</li>
  * <li>handleNextQuestion: 如果当前不是最后一题，就显示后一题</li>
- * <li></li>
+ * <li>executeClearRecords: 重置答题记录, 题目列表里面的按钮颜色还原.
+ * 后台执行数据库操作之后改变UI</li>
+ * <li>showHelp: 展示"帮助"窗口</li>
+ * <li>showAbout: 展示"关于"窗口</li>
+ * <li>getFormattedCorrectAnswers: 得到问题答案的格式化字符串</li>
  * </ul>
  * </p>
  */
 public class Controller {
 
-    // --- FXML 控件注入 ---
     @FXML private FlowPane questionsFlowPane;
     @FXML private Label stemLabel;
     @FXML private VBox optionsContainer;
@@ -55,11 +56,9 @@ public class Controller {
     @FXML private Button nextQuestionButton;
     @FXML private Button answerButton;
 
-    // --- 状态与服务 ---
     private final QuestionService questionService = new QuestionService();
     private List<Question> allQuestions;
     private Map<Integer, Button> questionButtonsMap = new HashMap<>();  // 存储题号和按钮实例之间的映射关系
-    private ToggleGroup optionsGroup = new ToggleGroup();
     private int currentQuestionIndex = -1;
 
     @FXML
@@ -120,39 +119,34 @@ public class Controller {
         currentQuestionIndex = index;
         Question currentQuestion = allQuestions.get(index);
 
-        // 更新题干区域. 若题目已答(stat为0或者1), 在stemLabel换两行追加正确答案.
+        // 更新题干区域
         String stemText = currentQuestion.stem();
         if (currentQuestion.stat() != 0) {
-            String correctAnswerFullText = "";
-            for (String option : currentQuestion.getOptions()) {
-                if (option.startsWith(currentQuestion.answer() + ".")) {
-                    correctAnswerFullText = option;
-                    break;
-                }
-            }
-            stemText += "\n\n正确答案: " + correctAnswerFullText;
+            stemText += "\n\n正确答案: " + getFormattedCorrectAnswers(currentQuestion);
         }
         stemLabel.setText(stemText);
 
-        // 更新选项区域.
+        // 更新选项区域
         optionsContainer.getChildren().clear();
-        optionsGroup.getToggles().clear();
         List<String> options = currentQuestion.getOptions();
         for (String optionText : options) {
-            RadioButton rb = new RadioButton(optionText);
-            rb.setToggleGroup(optionsGroup);
-            VBox.setMargin(rb, new Insets(10));
-            // 如果题目已经答过，则禁用所有选项
+            CheckBox cb = new CheckBox(optionText);
+            VBox.setMargin(cb, new Insets(10));
+
             if (currentQuestion.stat() != 0) {
-                rb.setDisable(true);
+                cb.setDisable(true);
+                String optionChar = optionText.substring(0, 1);
+                // 高亮正确答案
+                if (currentQuestion.answer().contains(optionChar)) {
+                    cb.setStyle("-fx-font-weight: bold;");
+                }
             }
-            optionsContainer.getChildren().add(rb);
+            optionsContainer.getChildren().add(cb);
         }
 
         // 更新底部按钮状态
         lastQuestionButton.setDisable(index == 0);
         nextQuestionButton.setDisable(index == allQuestions.size() - 1);
-        // 如果题目已经答过，禁用提交按钮
         answerButton.setDisable(currentQuestion.stat() != 0);
     }
 
@@ -163,18 +157,34 @@ public class Controller {
      */
     @FXML
     void handleSubmitAnswer(ActionEvent event) {
-        RadioButton selectedRb = (RadioButton) optionsGroup.getSelectedToggle();
-        if (selectedRb == null) {
+        StringBuilder userAnswerBuilder = new StringBuilder();
+        for (Node node : optionsContainer.getChildren()) {
+            if (node instanceof CheckBox) {
+                CheckBox cb = (CheckBox) node;
+                if (cb.isSelected()) {
+                    // 提取选项字母(例如从 "A. xxx" 中提取 "A")
+                    userAnswerBuilder.append(cb.getText().substring(0, 1));
+                }
+            }
+        }
+        String userAnswer = userAnswerBuilder.toString();
+
+        if (userAnswer.isEmpty()) {
             System.out.println("请先选择一个答案！");
             return;
         }
 
-        String selectedAnswerText = selectedRb.getText();
-        String userAnswer = selectedAnswerText.substring(0, 1);
         Question currentQuestion = allQuestions.get(currentQuestionIndex);
 
+        // 比较答案(忽略顺序)
+        // 将两个答案字符串排序后再比较, 可以忽略原始顺序(例如"AC"和"CA"会被认为是相同的)
+        char[] userAnswerChars = userAnswer.toCharArray();
+        char[] correctAnswerChars = currentQuestion.answer().toCharArray();
+        java.util.Arrays.sort(userAnswerChars);
+        java.util.Arrays.sort(correctAnswerChars);
+
         int newStatus;
-        if (userAnswer.equals(currentQuestion.answer())) {
+        if (new String(userAnswerChars).equals(new String(correctAnswerChars))) {
             newStatus = 1; // 答对
         } else {
             newStatus = 2; // 答错
@@ -184,25 +194,15 @@ public class Controller {
         Button currentButton = questionButtonsMap.get(currentQuestion.no());
         updateButtonAppearance(currentButton, newStatus);
 
-        // 立刻在stemLabel里面换两行追加正确答案.
-        String stemText = currentQuestion.stem();
-        String correctAnswerFullText = "";
-        for (String option : currentQuestion.getOptions()) {
-            if (option.startsWith(currentQuestion.answer() + ".")) {
-                correctAnswerFullText = option;
-                break;
-            }
-        }
-        stemLabel.setText(stemText + "\n\n正确答案: " + correctAnswerFullText);
+        // 立即显示正确答案
+        stemLabel.setText(currentQuestion.stem() + "\n\n正确答案: " + getFormattedCorrectAnswers(currentQuestion));
 
-        // 更新内存中的数据状态
+        // 更新内存和禁用控件
         allQuestions.set(currentQuestionIndex, currentQuestion.withStat(newStatus));
-
-        // 禁用提交按钮和选项
         answerButton.setDisable(true);
         optionsContainer.getChildren().forEach(node -> node.setDisable(true));
 
-        // 在后台线程中更新数据库
+        // 后台更新数据库
         final int questionNo = currentQuestion.no();
         Task<Void> updateTask = new Task<>() {
             @Override
@@ -359,5 +359,66 @@ public class Controller {
         });
 
         new Thread(resetTask).start();
+    }
+
+    /**
+     * 展示"帮助"窗口
+     * @param event
+     */
+    @FXML
+    void showHelp(ActionEvent event) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+
+        alert.setHeight(400);
+        alert.setTitle("帮助");
+        alert.setHeaderText("软件使用说明");
+        alert.setContentText("1.在左侧题目列表里点击对应编号的题目可以跳转至该题. \n\n" +
+                "2.右下角的\"上一题\"和\"下一题\"按钮可以跳转到相邻的题目. \n\n" +
+                "3.右侧中间栏选择选项后, 点击\"提交答案\"就可以看到作答情况. 若答对则左侧题目列表对应编号的按钮会变绿, 答错则会变红. \n\n" +
+                "4.菜单栏中点击\"其他功能\"会显示\"清空记录\"和\"数据统计\"按钮. \"清空记录\"可以重置答题记录; \"数据统计\"可以查看答对题数, 答错题数, 未答题数和正确率等数据. \n\n" +
+                "5.多选题均在题干后面标注了\"（多选题）\", 如果没有标\"（多选题）\"的都是单选题");
+        alert.setResizable(true);
+        alert.showAndWait();
+    }
+
+    /**
+     * 展示"关于"窗口
+     * @param event
+     */
+    @FXML
+    void showAbout(ActionEvent event) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+
+        alert.setHeight(350);
+        alert.setTitle("关于");
+        alert.setHeaderText("关于本软件");
+        alert.setContentText("作者: 某不知名的学长 & Mugaaaaa\n" +
+                "\n" +
+                "本软件是对一个古老的中山大学军理考试刷题软件的重置版. 原作者已不可考, 据说是信科院(今计院)的学长.\n\n" +
+                "原软件只流传有一个exe文件, 在命令行运行, 但是其采用GB2313编码, 与现在设备默认的UTF-8不符, " +
+                "可能导致乱码. 所幸软件的题库仍有文本文件留存, 本人编写解析脚本将题目数据存入SQLite数据库后, " +
+                "用Java重新编写了一个UI界面, 希望能帮到学弟学妹们.");
+
+        alert.setResizable(true);
+        alert.showAndWait();
+    }
+
+    /**
+     * 根据一个问题对象, 获取其所有正确答案的格式化字符串.
+     * @param question 题目对象
+     * @return 例如 "A. AnchorPane, C. TilePane"
+     */
+    private String getFormattedCorrectAnswers(Question question) {
+        String correctKeys = question.answer(); // 例如 "AC"
+        List<String> correctOptions = new ArrayList<>();
+
+        for (String optionText : question.getOptions()) {
+            String optionKey = optionText.substring(0, 1);
+            if (correctKeys.contains(optionKey)) {
+                correctOptions.add(optionText);
+            }
+        }
+        // 使用逗号和空格将所有正确选项连接成一个字符串
+        return String.join(", ", correctOptions);
     }
 }

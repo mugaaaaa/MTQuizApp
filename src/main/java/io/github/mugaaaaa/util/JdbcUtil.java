@@ -15,13 +15,13 @@ import java.sql.ResultSet;
  * 主要处理数据库的复制, 连接, 关闭.
  */
 public class JdbcUtil {
-    private static final String APP_DATA_FOLDER_NAME = ".millitaryTheoryQuizApp";
+    private static final String APP_DATA_FOLDER_NAME = ".MTQuizApp";
     private static final String DB_FILE_NAME = "data.db";
     private static final String DB_URL;
 
     static {
         // 确定data.db在用户电脑上的存储路径
-        String userHome = System.getProperty("user.Home");  // 获取用户主目录
+        String userHome = System.getProperty("user.home");  // 获取用户主目录
         File appDataDir = new File(userHome, APP_DATA_FOLDER_NAME);
         File dbFile = new File(appDataDir, DB_FILE_NAME);
 
@@ -31,7 +31,7 @@ public class JdbcUtil {
     }
 
     /**
-     * 如果用户目录不存在数据库文件, 就从resources/io/github/mugaaaaa/data.db那里复制一份过去.
+     * 如果用户目录不存在数据库文件, 就从resources/data.db那里复制一份过去.
      * @param dbFile
      */
     private static void setupDatabaseIfNotExist(File dbFile) {
@@ -98,12 +98,11 @@ public class JdbcUtil {
     }
 
     /**
-     * 方便的重载方法, 接受一个Connection和Statement.
+     * 方便的重载方法, 接受一个Connection和Statement. 调用上面的close方法增加代码复用性
      * @param conn
      * @param stmt
      */
     public static void close(Connection conn, Statement stmt) {
         close(conn, stmt, null);
     }
-    // 调用上面的close方法增加代码复用性
 }
