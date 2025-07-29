@@ -19,11 +19,32 @@ import javafx.stage.Window;
 import java.io.IOException;
 import java.net.URL;
 
-import javax.xml.crypto.Data;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
+/**
+ * 主页面(main.fxml)控制器:
+ * <p>
+ * 方法包括:
+ * <ul>
+ * <li>initialize: 加载页面时自动调用. 调用loadDataInBackground方法.</li>
+ * <li>loadDataInBackground: 后台调用loadAllQuestions方法.
+ * loadAllQuestions方法查询数据库并将题目都转化为Question示例, 存入allQuestions列表.</li>
+ * <li>populateQuestionButtons: 删除原来题目, 填充更新过后的新题目.</li>
+ * <li>displayQuestion: 改变UI, 显示对应题号的题目.</li>
+ * <li>handleSubmitAnswer: 提交答案后更新数据库, 调用updateButtonAppearance
+ * 根据是否答对改变题目列表里面对应的按钮颜色, 在题干后追加正确答案.</li>
+ * <li>updateButtonAppearance: 根据是否答对改变题目列表里面对应的按钮颜色.</li>
+ * <li></li>
+ * <li>executeClearRecords: 重置答题记录, 题目列表里面的按钮颜色还原.
+ * 后台执行数据库操作之后改变UI</li>
+ * <li>handleLastQuestion: 如果当前不是第一题，就显示前一题</li>
+ * <li>handleNextQuestion: 如果当前不是最后一题，就显示后一题</li>
+ * <li></li>
+ * </ul>
+ * </p>
+ */
 public class Controller {
 
     // --- FXML 控件注入 ---
@@ -37,7 +58,7 @@ public class Controller {
     // --- 状态与服务 ---
     private final QuestionService questionService = new QuestionService();
     private List<Question> allQuestions;
-    private Map<Integer, Button> questionButtonsMap = new HashMap<>();
+    private Map<Integer, Button> questionButtonsMap = new HashMap<>();  // 存储题号和按钮实例之间的映射关系
     private ToggleGroup optionsGroup = new ToggleGroup();
     private int currentQuestionIndex = -1;
 
@@ -46,6 +67,9 @@ public class Controller {
         loadDataInBackground();
     }
 
+    /**
+     * 在后台执行sql查询语句, 并将每个记录转化为Question实例, 装入allQuestions列表.
+     */
     private void loadDataInBackground() {
         Task<List<Question>> loadTask = new Task<>() {
             @Override
@@ -62,33 +86,57 @@ public class Controller {
         new Thread(loadTask).start();
     }
 
-    // 1. 重构 populateQuestionButtons 来应用初始颜色
+    /**
+     * 删除原先questionsFlowPane的题目, 并填充新题目.
+     * <p>
+     * FXML文件里面有个示例性质的Button示例, 初始化时要删除.
+     * 调用executeClearRecords方法删除答题记录时也会调用本方法, 也要删除原先的Button实例.
+     */
     private void populateQuestionButtons() {
+        // 去掉之前questionsFlowPane里的Button实例和编号-Button实例映射关系.
         questionsFlowPane.getChildren().clear();
         questionButtonsMap.clear();
+
         for (int i = 0; i < allQuestions.size(); i++) {
             Question q = allQuestions.get(i);
             Button btn = new Button(String.valueOf(q.no()));
+
             btn.setPrefSize(40, 40);
             final int questionIndex = i;
             btn.setOnAction(e -> displayQuestion(questionIndex));
-
-            updateButtonAppearance(btn, q.stat()); // 根据加载到的状态设置初始颜色
+            updateButtonAppearance(btn, q.stat());  // 根据加载到的状态设置初始颜色
 
             questionsFlowPane.getChildren().add(btn);
             questionButtonsMap.put(q.no(), btn);
         }
     }
 
+    /**
+     * 改变UI, 显示对应题号的题目
+     * @param index
+     */
     private void displayQuestion(int index) {
         if (index < 0 || index >= allQuestions.size()) return;
         currentQuestionIndex = index;
         Question currentQuestion = allQuestions.get(index);
 
-        stemLabel.setText(currentQuestion.stem());
+        // 更新题干区域. 若题目已答(stat为0或者1), 在stemLabel换两行追加正确答案.
+        String stemText = currentQuestion.stem();
+        if (currentQuestion.stat() != 0) {
+            String correctAnswerFullText = "";
+            for (String option : currentQuestion.getOptions()) {
+                if (option.startsWith(currentQuestion.answer() + ".")) {
+                    correctAnswerFullText = option;
+                    break;
+                }
+            }
+            stemText += "\n\n正确答案: " + correctAnswerFullText;
+        }
+        stemLabel.setText(stemText);
+
+        // 更新选项区域.
         optionsContainer.getChildren().clear();
         optionsGroup.getToggles().clear();
-
         List<String> options = currentQuestion.getOptions();
         for (String optionText : options) {
             RadioButton rb = new RadioButton(optionText);
@@ -97,21 +145,22 @@ public class Controller {
             // 如果题目已经答过，则禁用所有选项
             if (currentQuestion.stat() != 0) {
                 rb.setDisable(true);
-                // 如果是正确答案，可以特殊高亮显示
-                if (optionText.startsWith(currentQuestion.answer() + ".")) {
-                    rb.setStyle("-fx-font-weight: bold;"); // 例如加粗
-                }
             }
             optionsContainer.getChildren().add(rb);
         }
 
+        // 更新底部按钮状态
         lastQuestionButton.setDisable(index == 0);
         nextQuestionButton.setDisable(index == allQuestions.size() - 1);
         // 如果题目已经答过，禁用提交按钮
         answerButton.setDisable(currentQuestion.stat() != 0);
     }
 
-    // 3. 重构 handleSubmitAnswer 来更新数据库和UI
+    /**
+     * 提交答案后, 更改数据库, 更新对应记录的stat.
+     * 提交答案后会立即在题干里面追加正确答案, 根据是否答对更改questionsFlowPane对应按钮的颜色, 并禁用选项按钮.
+     * @param event
+     */
     @FXML
     void handleSubmitAnswer(ActionEvent event) {
         RadioButton selectedRb = (RadioButton) optionsGroup.getSelectedToggle();
@@ -135,6 +184,17 @@ public class Controller {
         Button currentButton = questionButtonsMap.get(currentQuestion.no());
         updateButtonAppearance(currentButton, newStatus);
 
+        // 立刻在stemLabel里面换两行追加正确答案.
+        String stemText = currentQuestion.stem();
+        String correctAnswerFullText = "";
+        for (String option : currentQuestion.getOptions()) {
+            if (option.startsWith(currentQuestion.answer() + ".")) {
+                correctAnswerFullText = option;
+                break;
+            }
+        }
+        stemLabel.setText(stemText + "\n\n正确答案: " + correctAnswerFullText);
+
         // 更新内存中的数据状态
         allQuestions.set(currentQuestionIndex, currentQuestion.withStat(newStatus));
 
@@ -155,17 +215,20 @@ public class Controller {
         new Thread(updateTask).start();
     }
 
-    // 辅助方法，根据状态更新按钮样式
+
+    /**
+     * 根据状态更新按钮样式
+     * @param button
+     * @param status
+     */
     private void updateButtonAppearance(Button button, int status) {
         button.getStyleClass().removeAll("correct-button", "incorrect-button"); // 先移除旧样式
         switch (status) {
             case 1: // 答对
                 button.setStyle("-fx-background-color: #90EE90;"); // 亮绿色
-                // 或者使用CSS: button.getStyleClass().add("correct-button");
                 break;
             case 2: // 答错
                 button.setStyle("-fx-background-color: #F08080;"); // 亮珊瑚色
-                // 或者使用CSS: button.getStyleClass().add("incorrect-button");
                 break;
             case 0: // 未答
             default:
@@ -190,6 +253,11 @@ public class Controller {
         }
     }
 
+    /**
+     * 计算答对数, 答错数, 未答数, 正确率等统计数据.
+     * 弹出窗口显示上面统计的数据.
+     * @param event
+     */
     @FXML
     void showDataAnalysis(ActionEvent event) {
         if (allQuestions == null || allQuestions.isEmpty()) {
@@ -218,7 +286,7 @@ public class Controller {
         int totalAnswered = correctCount + incorrectCount;
         double accuracy = (totalAnswered == 0) ? 0.0 : ((double) correctCount / totalAnswered);
 
-        //弹出新窗口, 获取当前窗口为父窗口.
+        // 弹出新窗口, 获取当前窗口为父窗口.
         try {
             URL fxmlUrl = getClass().getResource("/io/github/mugaaaaa/dataAnalysis.fxml");
             if (fxmlUrl == null) {
@@ -239,13 +307,10 @@ public class Controller {
             Window ownerWindow = stemLabel.getScene().getWindow();
             dataAnalysisStage.initOwner(ownerWindow);
 
-            // 将加载的FXML内容放到新窗口
             dataAnalysisStage.setScene(new Scene(root));
 
-            // 传入之前计算的数据
             dataAnalysisController.displayData(correctCount, incorrectCount, unansweredCount, accuracy);
 
-            // 子窗口的渲染进程持续
             dataAnalysisStage.showAndWait();
         } catch (IOException e) {
             e.printStackTrace();
@@ -254,7 +319,9 @@ public class Controller {
     }
 
     /**
-     * 菜单->清空记录
+     * 清空答题记录, 重置UI界面, 将数据库里面所有记录的stat置0.
+     * 创建后台进程执行数据库操作以方式UI卡顿.
+     * 在`其他功能->清空记录`里面调用.
      * @param event
      */
     @FXML
@@ -285,13 +352,10 @@ public class Controller {
             if (currentQuestionIndex != -1) {
                 displayQuestion(currentQuestionIndex);
             }
-
-            //showAlert("操作成功", "已清空答题记录");
         });
 
         resetTask.setOnFailed(e -> {
             resetTask.getException().printStackTrace();
-            //showAlert("操作失败", "清空答题记录失败");
         });
 
         new Thread(resetTask).start();

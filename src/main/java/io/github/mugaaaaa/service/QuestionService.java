@@ -1,6 +1,5 @@
 package io.github.mugaaaaa.service;
 
-// 修正一：添加了缺失的 import 语句
 import io.github.mugaaaaa.model.Question;
 import io.github.mugaaaaa.util.JdbcUtil;
 
@@ -11,19 +10,30 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 主要处理数据库和后端的交互.
+ * <p>
+ * 方法:
+ * <ul>
+ * <li>loadAllQuestions: 查询并返回题目列表allQuestions.</li>
+ * <li>updateQuestionStatus: 更新对应编号题目在数据库里的信息.</li>
+ * <li>resetAllQuestionStats: 重置答题状况, 把数据库里所有记录的stat都置0(未答状态)</li>
+ * </ul>
+ */
 public class QuestionService {
 
+    /**
+     * 执行sql查询语句并查询到的题目记录转化为Question实例, 返回包含所有问题的列表allQuestions.
+     */
     public List<Question> loadAllQuestions() {
         List<Question> questions = new ArrayList<>();
-        // 确保 SELECT 语句包含了 stat 字段
         String sql = "SELECT no, stem, answ, op_A, op_B, op_C, op_D, op_E, stat FROM questions ORDER BY no";
 
-        try (Connection conn = JdbcUtil.getConnection(); // 现在 JdbcUtil 能被找到了
+        try (Connection conn = JdbcUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
-                // 修正二：在构造函数中添加了第9个参数 stat
                 questions.add(new Question(
                         rs.getInt("no"),
                         rs.getString("stem"),
@@ -33,7 +43,7 @@ public class QuestionService {
                         rs.getString("op_C"),
                         rs.getString("op_D"),
                         rs.getString("op_E"),
-                        rs.getInt("stat") // 读取并传入 stat 字段的值
+                        rs.getInt("stat")
                 ));
             }
         } catch (SQLException e) {
@@ -42,23 +52,26 @@ public class QuestionService {
         return questions;
     }
 
+    /**
+     * 更新数据库对应记录的stat
+     * @param questionNo 问题号
+     * @param status 新状态
+     */
     public void updateQuestionStatus(int questionNo, int status) {
         String sql = "UPDATE questions SET stat = ? WHERE no = ?";
 
-        try (Connection conn = JdbcUtil.getConnection(); // 现在 JdbcUtil 能被找到了
+        try (Connection conn = JdbcUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
             pstmt.setInt(1, status);
             pstmt.setInt(2, questionNo);
             pstmt.executeUpdate();
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
     /**
-     * 重置答题状态, 把data.db里面的stat都重置为0(未答状态)
+     * 重置答题状态, 把data.db里面的stat都重置为0
      */
     public void resetAllQuestionStats() {
         String sql = "UPDATE questions SET stat = 0";

@@ -12,7 +12,11 @@ public class DataAnalysisController {
     @FXML private Label accuracyLabel;
 
     /**
-     * 从主控制器接收统计数据并更新UI
+     * 从主控制器接收统计数据并更新dataAnalysis.fxml子窗口的UI.
+     * @param correct 答对数
+     * @param incorrect 答错数
+     * @param unanswered 未答数
+     * @param accuracy 正确率
      */
     public void displayData(int correct, int incorrect, int unanswered, double accuracy) {
         correctCountLabel.setText(String.valueOf(correct));
